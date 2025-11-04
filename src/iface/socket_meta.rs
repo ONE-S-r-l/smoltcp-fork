@@ -100,4 +100,8 @@ impl Meta {
             silent_until: timestamp + Self::DISCOVERY_SILENT_TIME,
         };
     }
+
+    pub(crate) fn reset_neighbor_state(&mut self) {
+        self.neighbor_state = NeighborState::Active;
+    }
 }

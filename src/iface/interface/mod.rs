@@ -526,7 +526,7 @@ impl Interface {
     ///
     /// [poll]: #method.poll
     /// [Instant]: struct.Instant.html
-    pub fn poll_at(&mut self, timestamp: Instant, sockets: &SocketSet<'_>) -> Option<Instant> {
+    pub fn poll_at(&mut self, timestamp: Instant, sockets: &mut SocketSet<'_>) -> Option<Instant> {
         self.inner.now = timestamp;
 
         #[cfg(feature = "_proto-fragmentation")]
@@ -537,9 +537,14 @@ impl Interface {
         let inner = &mut self.inner;
 
         sockets
-            .items()
+            .items_mut()
             .filter_map(move |item| {
                 let socket_poll_at = item.socket.poll_at(inner);
+                if let PollAt::Ingress = socket_poll_at {
+                    item.meta.reset_neighbor_state();
+                    return None;
+                }
+
                 match item
                     .meta
                     .poll_at(socket_poll_at, |ip_addr| inner.has_neighbor(&ip_addr))
@@ -560,7 +565,11 @@ impl Interface {
     ///
     /// [poll]: #method.poll
     /// [Duration]: struct.Duration.html
-    pub fn poll_delay(&mut self, timestamp: Instant, sockets: &SocketSet<'_>) -> Option<Duration> {
+    pub fn poll_delay(
+        &mut self,
+        timestamp: Instant,
+        sockets: &mut SocketSet<'_>,
+    ) -> Option<Duration> {
         match self.poll_at(timestamp, sockets) {
             Some(poll_at) if timestamp < poll_at => Some(poll_at - timestamp),
             Some(_) => Some(Duration::from_millis(0)),
