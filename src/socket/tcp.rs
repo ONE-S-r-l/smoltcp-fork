@@ -2602,7 +2602,19 @@ impl<'a> Socket<'a> {
         // to not waste time waiting for the retransmit timer on packets that we know
         // for sure will not be successfully transmitted.
         ip_repr.set_payload_len(repr.buffer_len());
-        emit(cx, (ip_repr, repr))?;
+        let emit_result = emit(cx, (ip_repr, repr));
+        if emit_result.is_err() {
+            if self.state == State::Closed {
+                // When aborting a connection, forget about it if sending a single RST packet fails.
+                self.tuple = None;
+                #[cfg(feature = "async")]
+                {
+                    // Wake tx now so that async users can wait for the RST to be sent
+                    self.tx_waker.wake();
+                }
+            }
+            return emit_result;
+        }
 
         // We've sent something, whether useful data or a keep-alive packet, so rewind
         // the keep-alive timer.
