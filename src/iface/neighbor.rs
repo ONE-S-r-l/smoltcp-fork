@@ -160,11 +160,7 @@ impl Cache {
             }
         }
 
-        if timestamp < self.silent_until {
-            Answer::RateLimited
-        } else {
-            Answer::NotFound
-        }
+        Answer::NotFound
     }
 
     pub(crate) fn limit_rate(&mut self, timestamp: Instant) {
